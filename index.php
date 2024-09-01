@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id'])) {
 include 'db.php'; // Database connection file
 
 $duplicate = false;
+$search_query = "";
+
+// Handle phone number addition
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['phone'])) {
     $phone_number = $_POST['phone'];
 
@@ -82,7 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
     }
 }
 
-// Fetch total count of phone numbers
+// Fetch total count of phone numbers for pagination
 $total_query = "SELECT COUNT(*) AS total FROM number";
 $total_result = $conn->query($total_query);
 $total_row = $total_result->fetch_assoc();
@@ -98,10 +101,20 @@ $currentPage = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $currentPage = max(1, min($currentPage, $totalPages)); // Ensure current page is within range
 $offset = ($currentPage - 1) * $rowsPerPage;
 
-// Fetch phone numbers with pagination
-$query = "SELECT id, number FROM number ORDER BY id DESC LIMIT ?, ?";
-$stmt = $conn->prepare($query);
-$stmt->bind_param("ii", $offset, $rowsPerPage);
+// Handle search functionality
+if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['search'])) {
+    $search_query = $_GET['search'];
+    $query = "SELECT id, number FROM number WHERE number LIKE ? ORDER BY id DESC LIMIT ?, ?";
+    $search_param = "%" . $search_query . "%";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("sii", $search_param, $offset, $rowsPerPage);
+} else {
+    // Fetch phone numbers with pagination
+    $query = "SELECT id, number FROM number ORDER BY id DESC LIMIT ?, ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ii", $offset, $rowsPerPage);
+}
+
 $stmt->execute();
 $result = $stmt->get_result();
 $numbers = $result->fetch_all(MYSQLI_ASSOC);
@@ -128,6 +141,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'txt') {
     exit();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -180,20 +194,26 @@ if (isset($_GET['export']) && $_GET['export'] === 'txt') {
     }
 
     .search-container {
-        margin-top: 20px;
-        text-align: right;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: flex-end;
     }
 
     .search-input {
-        padding: 10px;
         width: 250px;
-        border: 1px solid #ddd;
+        padding: 8px;
+        margin-right: 10px;
+        border: 1px solid #ccc;
         border-radius: 4px;
-        outline: none;
     }
 
-    .search-input:focus {
-        border-color: #388e3c;
+    .search-btn {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
     }
 
     .action-btn {
@@ -371,7 +391,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'txt') {
         </div>
 
         <div class="search-container">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search phone numbers...">
+            <form action="index.php" method="get">
+                <input type="text" name="search" id="searchInput" class="search-input"
+                    placeholder="Search phone numbers..." value="<?php echo htmlspecialchars($search_query); ?>">
+                <button type="submit" class="search-btn">Search</button>
+            </form>
         </div>
 
         <table id="itemsTable">
@@ -429,7 +453,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'txt') {
 
             for ($i = $start; $i <= $end; $i++) {
                 if ($i == $currentPage) {
-                    echo '<span>' . $i . '</span>';
+                    echo '<span class="current-page">' . $i . '</span>';
                 } else {
                     echo '<a href="?page=' . $i . '">' . $i . '</a>';
                 }
@@ -442,29 +466,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'txt') {
                 echo '<a href="?page=' . $totalPages . '">' . $totalPages . '</a>';
             }
             ?>
-
-            <?php if ($currentPage < $totalPages): ?>
-            <a href="?page=<?php echo $currentPage + 1; ?>">Next</a>
-            <?php endif; ?>
         </div>
 
         <div class="export-container">
             <a href="index.php?export=txt" class="export-btn">Export to TXT</a>
         </div>
     </div>
-
-    <script>
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', function() {
-        const query = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#itemsTable tbody tr');
-
-        rows.forEach(row => {
-            const phoneNumber = row.cells[1].textContent.toLowerCase();
-            row.style.display = phoneNumber.includes(query) ? '' : 'none';
-        });
-    });
-    </script>
 </body>
 
 </html>
