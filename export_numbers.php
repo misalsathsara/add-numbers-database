@@ -20,7 +20,9 @@ if ($result->num_rows > 0) {
     // Prepare data for output
     $numbers = [];
     while ($row = $result->fetch_assoc()) {
-        $numbers[] = $row['number'];
+        // Remove all spaces from the number
+        $cleanNumber = preg_replace('/\s+/', '', $row['number']);
+        $numbers[] = $cleanNumber;
     }
     
     // Combine all numbers into a single line separated by commas
