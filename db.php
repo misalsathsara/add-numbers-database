@@ -1,5 +1,5 @@
 <?php
-$servername = "localhost:8889"; // or your server details
+$servername = "localhost"; // or your server details
 $username = "root";
 $password = "root";
 $dbname = "numbersdb"; // or your database name
